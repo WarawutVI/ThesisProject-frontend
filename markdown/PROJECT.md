@@ -71,11 +71,19 @@ lib/
 │   ├── homepage.dart              # Main hub — streak banner + 3 nav cards
 │   ├── lessonspage.dart           # Lessons (stub — under development)
 │   ├── practicepage.dart          # Practice entry — Short vs Long vowel selector
-│   ├── progreespage.dart          # Progress analytics dashboard (fully built)
-│   └── practice/
-│       ├── vowel_grid_page.dart   # 3×3 vowel grid with completion badges
-│       ├── word_grid_page.dart    # Word grid for a selected vowel
-│       └── recording_page.dart    # Mic recording + ML prediction + result modal
+│   ├── progreespage.dart          # Thin coordinator — loads data, lays out progressELM children
+│   ├── practice/
+│   │   ├── vowel_grid_page.dart   # 3×3 vowel grid with completion badges
+│   │   ├── word_grid_page.dart    # Word grid for a selected vowel
+│   │   └── recording_page.dart    # Mic recording + ML prediction + result modal
+│   └── progressELM/
+│       ├── progress_shared.dart   # ProgressCard wrapper, FilterPill, shared helpers (pt, accuracyColor)
+│       ├── summary_card.dart      # Summary hero card (overall %, sessions, best, streak)
+│       ├── practice_count_chart.dart  # Bar chart (long/short toggle)
+│       ├── avg_accuracy_donuts.dart   # Side-by-side donut charts (long vs short)
+│       ├── trend_card.dart        # Accuracy trend chart + custom date range picker
+│       ├── recent_sessions_list.dart  # Session history list
+│       └── weak_vowels_list.dart  # Weak vowels CTA ("Try again" → WordGridPage)
 │
 ├── services/
 │   ├── practice_api.dart          # All HTTP calls to Node.js + Flask backends
