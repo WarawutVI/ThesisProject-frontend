@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 
-const String _base = 'http://10.0.2.2:4000';
-const String _flaskBase = 'http://192.168.0.11:5000';
+const String _base = 'https://inflation-bluetooth-searching-ethnic.trycloudflare.com';
+const String _flaskBase = 'https://cabinets-sagem-server-something.trycloudflare.com';
 
 class VowelDetail {
   final int id;
