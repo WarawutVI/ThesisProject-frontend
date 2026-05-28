@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/language_toggle_button.dart';
 import 'package:frontend/pages/lessons/vowel_detail_page.dart';
 import 'package:frontend/services/practice_api.dart';
 import 'package:get/get.dart';
@@ -58,15 +59,9 @@ class _LessonspageState extends State<Lessonspage> {
         ),
         centerTitle: false,
         actions: [
-          TextButton(
-            onPressed: () => setState(() => isEnglish = !isEnglish),
-            child: Text(
-              isEnglish ? 'TH' : 'EN',
-              style: const TextStyle(
-                color: Color(0xFF1A7A50),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          LanguageToggleButton(
+            isEnglish: isEnglish,
+            onChanged: (v) => setState(() => isEnglish = v),
           ),
         ],
       ),

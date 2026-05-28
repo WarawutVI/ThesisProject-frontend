@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/language_toggle_button.dart';
 import 'package:frontend/pages/practice/word_grid_page.dart';
 import 'package:frontend/services/practice_api.dart';
 import 'package:get/get.dart';
@@ -104,9 +105,9 @@ class _VowelGridPageState extends State<VowelGridPage> {
               color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            onPressed: () => setState(() => isEnglish = !isEnglish),
-            icon: const Icon(Icons.language, color: Colors.black54),
+          LanguageToggleButton(
+            isEnglish: isEnglish,
+            onChanged: (v) => setState(() => isEnglish = v),
           ),
         ],
       ),

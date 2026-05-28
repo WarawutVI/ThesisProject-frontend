@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/language_toggle_button.dart';
 import 'package:frontend/wrapper.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
@@ -114,29 +115,10 @@ class _AgepageState extends State<Agepage> {
             children: [
               Align(
                 alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () => setState(() => isEnglish = !isEnglish),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A9B6A),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.language,
-                            color: Colors.white, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          isEnglish ? 'EN' : 'TH',
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: LanguageToggleButton(
+                  isEnglish: isEnglish,
+                  onChanged: (v) => setState(() => isEnglish = v),
+                  pillStyle: true,
                 ),
               ),
               const SizedBox(height: 24),

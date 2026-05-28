@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 const String _base = 'http://10.0.2.2:4000';
-const String _flaskBase = 'http://192.168.0.62:5000';
+const String _flaskBase = 'http://192.168.0.11:5000';
 
 class VowelDetail {
   final int id;
@@ -102,6 +102,18 @@ class LessonProgress {
         isCompleted: j['is_completed'] == null ? null : (j['is_completed'] as int) == 1,
         bestAccuracy: (j['best_accuracy'] ?? 0.0).toDouble(),
         attempts: (j['attempts'] ?? 0) as int,
+      );
+}
+
+class VowelFormant {
+  final double f1;
+  final double f2;
+
+  const VowelFormant({required this.f1, required this.f2});
+
+  factory VowelFormant.fromJson(Map<String, dynamic> j) => VowelFormant(
+        f1: (j['f1'] as num).toDouble(),
+        f2: (j['f2'] as num).toDouble(),
       );
 }
 
@@ -384,6 +396,13 @@ class PracticeApi {
     return data
         .map((e) => SessionRecord.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  // GET /vowels/:vowelId/formants
+  static Future<VowelFormant> fetchVowelFormant(int vowelId) async {
+    final res = await http.get(Uri.parse('$_base/vowels/$vowelId/formants'));
+    if (res.statusCode != 200) throw Exception('Failed to load vowel formant');
+    return VowelFormant.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   // GET /vowels/details — all 18 vowels with pronunciation guide data

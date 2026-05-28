@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/language_toggle_button.dart';
 import 'package:frontend/pages/practice/vowel_grid_page.dart';
 import 'package:get/get.dart';
 
@@ -76,9 +77,9 @@ class _PracticepageState extends State<Practicepage> {
               color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            onPressed: () => setState(() => isEnglish = !isEnglish),
-            icon: const Icon(Icons.language, color: Colors.black54),
+          LanguageToggleButton(
+            isEnglish: isEnglish,
+            onChanged: (v) => setState(() => isEnglish = v),
           ),
         ],
       ),

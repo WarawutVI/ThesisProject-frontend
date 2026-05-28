@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/language_toggle_button.dart';
 import 'package:frontend/pages/progressELM/avg_accuracy_donuts.dart';
 import 'package:frontend/pages/progressELM/practice_count_chart.dart';
 import 'package:frontend/pages/progressELM/recent_sessions_list.dart';
@@ -124,9 +125,9 @@ class _ProgreespageState extends State<Progreespage> {
               color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            onPressed: () => setState(() => isEnglish = !isEnglish),
-            icon: const Icon(Icons.language, color: Colors.black54),
+          LanguageToggleButton(
+            isEnglish: isEnglish,
+            onChanged: (v) => setState(() => isEnglish = v),
           ),
         ],
       );

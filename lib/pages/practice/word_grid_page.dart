@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/language_toggle_button.dart';
+import 'package:frontend/pages/homepage.dart';
 import 'package:frontend/pages/practice/recording_page.dart';
 import 'package:frontend/services/practice_api.dart';
 import 'package:get/get.dart';
@@ -24,7 +26,8 @@ class WordGridPage extends StatefulWidget {
 
 class _WordGridPageState extends State<WordGridPage> {
   late bool isEnglish;
-  List<LessonProgress> lessons = [];
+  LessonProgress? _vowelLesson;
+  List<LessonProgress> _wordLessons = [];
   bool loading = true;
   String? error;
 
@@ -42,7 +45,8 @@ class _WordGridPageState extends State<WordGridPage> {
     try {
       final data = await PracticeApi.fetchLessons(firebaseUid, widget.vowelId);
       setState(() {
-        lessons = data;
+        _vowelLesson = data.where((l) => l.lessonOrder == 1).firstOrNull;
+        _wordLessons = data.where((l) => l.lessonOrder != 1).toList();
         loading = false;
       });
     } catch (e) {
@@ -51,6 +55,19 @@ class _WordGridPageState extends State<WordGridPage> {
         loading = false;
       });
     }
+  }
+
+  Future<void> _tapLesson(LessonProgress l) async {
+    await Get.to(() => RecordingPage(
+          lessonId: l.lessonId,
+          lessonOrder: l.lessonOrder,
+          vowelId: widget.vowelId,
+          word: l.lessonName,
+          vowelSymbol: widget.vowelSymbol,
+          isEnglish: isEnglish,
+        ));
+    setState(() => loading = true);
+    _load();
   }
 
   Color _cardColor(LessonProgress l) {
@@ -154,6 +171,27 @@ class _WordGridPageState extends State<WordGridPage> {
     );
   }
 
+  Widget _sectionBadge(int number) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A7A50),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Center(
+        child: Text(
+          '$number',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,9 +209,9 @@ class _WordGridPageState extends State<WordGridPage> {
               color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            onPressed: () => setState(() => isEnglish = !isEnglish),
-            icon: const Icon(Icons.language, color: Colors.black54),
+          LanguageToggleButton(
+            isEnglish: isEnglish,
+            onChanged: (v) => setState(() => isEnglish = v),
           ),
         ],
       ),
@@ -199,102 +237,218 @@ class _WordGridPageState extends State<WordGridPage> {
                     ],
                   ),
                 )
-              : Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            widget.vowelSymbol,
-                            style: const TextStyle(
-                              fontSize: 70,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          GestureDetector(
-                            onTap: _showInfoDialog,
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1A7A50),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.info_outline,
-                                  color: Colors.white, size: 22),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        t('WORDS WITH THIS VOWEL', 'คำที่ใช้สระนี้'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                          letterSpacing: 1,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: GridView.builder(
-                          itemCount: lessons.length,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 1.0,
-                          ),
-                          itemBuilder: (context, index) {
-                            final l = lessons[index];
-                            return GestureDetector(
-                              onTap: () async {
-                                await Get.to(() => RecordingPage(
-                                      lessonId: l.lessonId,
-                                      vowelId: widget.vowelId,
-                                      word: l.lessonName,
-                                      vowelSymbol: widget.vowelSymbol,
-                                      isEnglish: isEnglish,
-                                    ));
-                                setState(() => loading = true);
-                                _load();
-                              },
-                              child: Stack(
-                                children: [
-                                  Container(
+              : Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Vowel symbol + info button
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  widget.vowelSymbol,
+                                  style: const TextStyle(
+                                    fontSize: 70,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: _showInfoDialog,
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
                                     decoration: BoxDecoration(
-                                      color: _cardColor(l),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                          color: _borderColor(l), width: 2),
+                                      color: const Color(0xFF1A7A50),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        l.lessonName,
-                                        style: const TextStyle(
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
+                                    child: const Icon(Icons.info_outline,
+                                        color: Colors.white, size: 22),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Section 1: just the vowel
+                            if (_vowelLesson != null) ...[
+                              Row(
+                                children: [
+                                  _sectionBadge(1),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    t('just the vowel', 'แค่สระ'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: Colors.black87,
                                     ),
                                   ),
-                                  if (_badge(l) != null) _badge(l)!,
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    t('say it alone', 'ออกเสียงเดี่ยว'),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
                                 ],
                               ),
-                            );
-                          },
+                              const SizedBox(height: 10),
+                              GestureDetector(
+                                onTap: () => _tapLesson(_vowelLesson!),
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 20, vertical: 16),
+                                      decoration: BoxDecoration(
+                                        color: _cardColor(_vowelLesson!),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: _borderColor(_vowelLesson!),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            _vowelLesson!.lessonName,
+                                            style: const TextStyle(
+                                              fontSize: 42,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                          Container(
+                                            width: 52,
+                                            height: 52,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFF1A7A50),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.mic,
+                                              color: Colors.white,
+                                              size: 28,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (_badge(_vowelLesson!) != null)
+                                      _badge(_vowelLesson!)!,
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+
+                            // Section 2: with letters
+                            if (_wordLessons.isNotEmpty) ...[
+                              Row(
+                                children: [
+                                  _sectionBadge(2),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    t('With letters', 'คำที่ใช้สระนี้'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    t('${_wordLessons.length} words',
+                                        '${_wordLessons.length} คำ'),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _wordLessons.length,
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 1.0,
+                                ),
+                                itemBuilder: (context, index) {
+                                  final l = _wordLessons[index];
+                                  return GestureDetector(
+                                    onTap: () => _tapLesson(l),
+                                    child: Stack(
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: _cardColor(l),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            border: Border.all(
+                                                color: _borderColor(l),
+                                                width: 2),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              l.lessonName,
+                                              style: const TextStyle(
+                                                fontSize: 26,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        if (_badge(l) != null) _badge(l)!,
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+
+                    // Home button
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 28),
+                      child: GestureDetector(
+                        onTap: () => Get.offAll(() => Homepage()),
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF1A6B45),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.home,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/language_toggle_button.dart';
 import 'package:frontend/pages/lessonspage.dart';
 import 'package:frontend/pages/practicepage.dart';
 import 'package:frontend/pages/progreespage.dart';
@@ -192,9 +193,9 @@ class _HomepageState extends State<Homepage> {
           ),
         ),
         actions: [
-          IconButton(
-            onPressed: () => setState(() => isEnglish = !isEnglish),
-            icon: const Icon(Icons.language, color: Colors.black54, size: 26),
+          LanguageToggleButton(
+            isEnglish: isEnglish,
+            onChanged: (v) => setState(() => isEnglish = v),
           ),
           IconButton(
             onPressed: _signOut,

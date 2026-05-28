@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:frontend/services/practice_api.dart';
 import 'package:frontend/services/vowel_utils.dart';
+import 'package:frontend/widgets/language_toggle_button.dart';
 import 'package:frontend/widgets/waveform_display.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,7 +13,8 @@ import 'package:record/record.dart';
 
 class RecordingPage extends StatefulWidget {
   final int lessonId;
-  final int vowelId;      // DB id 1–18, used to derive Flask index + asset
+  final int lessonOrder;
+  final int vowelId;
   final String word;
   final String vowelSymbol;
   final bool isEnglish;
@@ -20,6 +22,7 @@ class RecordingPage extends StatefulWidget {
   const RecordingPage({
     super.key,
     required this.lessonId,
+    required this.lessonOrder,
     required this.vowelId,
     required this.word,
     required this.vowelSymbol,
@@ -46,12 +49,12 @@ class _RecordingPageState extends State<RecordingPage> {
   double _confidence = 0;
   double _userF1 = 0;
   double _userF2 = 0;
+  VowelFormant? _refFormant;
 
   String get firebaseUid => FirebaseAuth.instance.currentUser!.uid;
   String t(String en, String th) => isEnglish ? en : th;
 
   int get _vowelIndex => vowelIdToIndex(widget.vowelId);
-  String get _assetName => vowelIndexToAssetName(_vowelIndex);
 
   @override
   void initState() {
@@ -72,7 +75,8 @@ class _RecordingPageState extends State<RecordingPage> {
 
   Future<List<double>> _loadRefWaveform() async {
     try {
-      final path = 'assets/references/$_assetName.wav';
+      final path = 'assets/references/${widget.vowelId}/${widget.lessonOrder}.wav';
+      print('Loading reference waveform from: $path');
       final data = await rootBundle.load(path);
       return preprocessSamples(decodePcmWav(data.buffer.asUint8List()));
     } catch (e) {
@@ -157,6 +161,11 @@ class _RecordingPageState extends State<RecordingPage> {
         _loadUserWaveform(filePath),
       ]);
 
+      VowelFormant? refFormant;
+      try {
+        refFormant = await PracticeApi.fetchVowelFormant(widget.vowelId);
+      } catch (_) {}
+
       // Save to backend (fire-and-forget; don't block UI)
       PracticeApi.saveSession(
         firebaseUid: firebaseUid,
@@ -177,6 +186,7 @@ class _RecordingPageState extends State<RecordingPage> {
         _confidence = result.confidence;
         _userF1 = result.userF1;
         _userF2 = result.userF2;
+        _refFormant = refFormant;
         _refSamples = waves[0];
         _userSamples = waves[1];
         _statusText =
@@ -190,75 +200,133 @@ class _RecordingPageState extends State<RecordingPage> {
     }
   }
 
+  String _buildSuggestion() {
+    final ref = _refFormant;
+    if (ref == null || (_userF1 == 0 && _userF2 == 0)) return '';
+
+    final List<String> partsEn = [];
+    final List<String> partsTh = [];
+
+    final f1Diff = _userF1;
+    final f2Diff = _userF2;
+    final f1Threshold = ref.f1 ;
+    final f2Threshold = ref.f2;
+
+    if (f1Diff > f1Threshold) {
+      partsEn.addAll(['closing your mouth slightly', 'raising your tongue']);
+      partsTh.addAll(['ปิดปากลงเล็กน้อย', 'ยกลิ้นขึ้น']);
+    } else if (f1Diff < -f1Threshold) {
+      partsEn.addAll(['opening your mouth wider', 'lowering your tongue']);
+      partsTh.addAll(['อ้าปากให้กว้างขึ้น', 'วางลิ้นให้ต่ำลง']);
+    }
+
+    if (f2Diff > f2Threshold) {
+      partsEn.add('moving your tongue slightly back');
+      partsTh.add('เลื่อนลิ้นไปด้านหลังเล็กน้อย');
+    } else if (f2Diff < -f2Threshold) {
+      partsEn.addAll(['moving your tongue slightly forward', 'relaxing your lips']);
+      partsTh.addAll(['เลื่อนลิ้นไปด้านหน้าเล็กน้อย', 'ผ่อนคลายริมฝีปาก']);
+    }
+
+    if (partsEn.isEmpty) return '';
+    return isEnglish
+        ? 'Try ${partsEn.join(', ')}.'
+        : 'ลอง${partsTh.join(' ')}';
+  }
+
   void _showResultModal() {
+    final passed = _confidence >= 0.70;
+    final suggestion = _buildSuggestion();
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Title
                   Center(
                     child: Text(
-                      t('Practice Result', 'ผลการฝึก'),
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Center(
-                    child: Text(
-                      '${widget.word}  ·  ${(_confidence * 100).toStringAsFixed(1)}%',
+                      passed
+                          ? t('Correct 🎉', 'ถูกต้อง 🎉')
+                          : t('Incorrect', 'ไม่ถูกต้อง'),
                       style: TextStyle(
-                          fontSize: 15, color: Colors.grey.shade600),
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: passed
+                            ? const Color(0xFF1A7A50)
+                            : Colors.redAccent,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Center(child: _confidenceBar()),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   // Waveform
-                  Text(
-                    t('Waveform Comparison', 'เปรียบเทียบคลื่นเสียง'),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 6),
                   WaveformDisplay(
                     refSamples: _refSamples,
                     userSamples: _userSamples,
-                    refLabel: t('Reference', 'เสียงอ้างอิง'),
-                    userLabel: t('Your voice', 'เสียงของคุณ'),
+                    refLabel: t('Sample Audio', 'เสียงตัวอย่าง'),
+                    userLabel: t('Your Audio', 'เสียงของคุณ'),
                   ),
+                  const SizedBox(height: 14),
+
+                  // Accuracy
+                  Center(
+                    child: Text(
+                      t(
+                        'accuracy ${(_confidence * 100).toStringAsFixed(0)}%',
+                        'ความแม่นยำ ${(_confidence * 100).toStringAsFixed(0)}%',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+
+                  // Suggestion
+                  if (suggestion.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${t('suggestion', 'คำแนะนำ')} : ',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          TextSpan(
+                            text: suggestion,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
 
-                  // Formants
-                  Text(
-                    t('Formant Frequencies', 'ความถี่ฟอร์แมนต์'),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 8),
-                  _formantTable(),
-                  const SizedBox(height: 24),
-
+                  // Buttons
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                                color: Color(0xFF1A7A50)),
+                            side: const BorderSide(color: Color(0xFF1A7A50)),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10)),
                           ),
@@ -280,8 +348,7 @@ class _RecordingPageState extends State<RecordingPage> {
                                 borderRadius: BorderRadius.circular(10)),
                           ),
                           child: Text(t('Finish', 'เสร็จสิ้น'),
-                              style:
-                                  const TextStyle(color: Colors.white)),
+                              style: const TextStyle(color: Colors.white)),
                         ),
                       ),
                     ],
@@ -297,105 +364,14 @@ class _RecordingPageState extends State<RecordingPage> {
                 child: Container(
                   decoration: BoxDecoration(
                       color: Colors.grey[200], shape: BoxShape.circle),
-                  child: Icon(Icons.close,
-                      color: Colors.grey[700], size: 24),
+                  child:
+                      Icon(Icons.close, color: Colors.grey[700], size: 24),
                 ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _confidenceBar() {
-    final pct = _confidence.clamp(0.0, 1.0);
-    final Color barColor;
-    final String label;
-    if (pct >= 0.75) {
-      barColor = const Color(0xFF2ECC71);
-      label = t('Great!', 'เยี่ยมมาก!');
-    } else if (pct >= 0.5) {
-      barColor = Colors.orange;
-      label = t('Keep practicing', 'ฝึกต่อไป');
-    } else {
-      barColor = Colors.redAccent;
-      label = t('Try again', 'ลองอีกครั้ง');
-    }
-
-    return Column(
-      children: [
-        SizedBox(
-          width: 200,
-          height: 12,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: pct,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(barColor),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(label,
-            style: TextStyle(
-                fontSize: 12,
-                color: barColor,
-                fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-
-  Widget _formantTable() {
-    final rows = [
-      ['', 'F1 (Hz)', 'F2 (Hz)'],
-      [
-        t('Your voice', 'เสียงของคุณ'),
-        _userF1.toStringAsFixed(0),
-        _userF2.toStringAsFixed(0),
-      ],
-    ];
-
-    return Table(
-      border: TableBorder.all(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(8)),
-      columnWidths: const {
-        0: FlexColumnWidth(2),
-        1: FlexColumnWidth(2),
-        2: FlexColumnWidth(2),
-      },
-      children: rows.asMap().entries.map((entry) {
-        final isHeader = entry.key == 0;
-        return TableRow(
-          decoration: BoxDecoration(
-            color: isHeader
-                ? Colors.grey.shade100
-                : (entry.key.isOdd
-                    ? Colors.white
-                    : Colors.grey.shade50),
-          ),
-          children: entry.value.map((cell) {
-            return Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              child: Text(
-                cell,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight:
-                      isHeader ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 13,
-                  color: isHeader
-                      ? Colors.grey.shade700
-                      : Colors.black87,
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      }).toList(),
     );
   }
 
@@ -416,9 +392,9 @@ class _RecordingPageState extends State<RecordingPage> {
               color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            onPressed: () => setState(() => isEnglish = !isEnglish),
-            icon: const Icon(Icons.language, color: Colors.black54),
+          LanguageToggleButton(
+            isEnglish: isEnglish,
+            onChanged: (v) => setState(() => isEnglish = v),
           ),
         ],
       ),
@@ -428,16 +404,16 @@ class _RecordingPageState extends State<RecordingPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                widget.vowelSymbol,
-                style: const TextStyle(
-                    fontSize: 36, color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
+              // Text(
+              //   widget.vowelSymbol,
+              //   style: const TextStyle(
+              //       fontSize: 36, color: Colors.grey),
+              // // ),
+              // const SizedBox(height: 8),
               Text(
                 widget.word,
                 style: const TextStyle(
-                  fontSize: 72,
+                  fontSize: 170,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
