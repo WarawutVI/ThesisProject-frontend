@@ -271,7 +271,7 @@ class PracticeApi {
         'login_provider': loginProvider,
       }),
     );
-    if (res.statusCode != 200) throw Exception('Failed to create user');
+    if (res.statusCode != 201) throw Exception('Failed to create user');
   }
 
   // GET /vowels?type=short|long&firebase_uid=X
