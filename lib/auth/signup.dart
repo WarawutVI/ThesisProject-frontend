@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:frontend/widgets/language_toggle_button.dart';
 import 'package:frontend/auth/gender.dart';
@@ -33,68 +34,72 @@ class _SignupState extends State<Signup> {
         barrierDismissible: false,
       );
 
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        serverClientId:
-            '383298804056-3v7k9oefmo2bbu297s5b8vrb5looiqll.apps.googleusercontent.com',
-      );
-      
-      debugPrint('Starting Google Sign-In...');
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      debugPrint('googleUser returned: ${googleUser?.email ?? "null"}');
+      late UserCredential userCredential;
 
-      if (googleUser == null) {
-        Get.back();
-        debugPrint('Google Sign-In cancelled by user or failed silently.');
-        Get.snackbar(
-          t("Cancelled", "ยกเลิก"),
-          t("Google sign-in was cancelled or failed",
-              "การเข้าสู่ระบบด้วย Google ถูกยกเลิกหรือล้มเหลว"),
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
+      if (kIsWeb) {
+        userCredential = await FirebaseAuth.instance
+            .signInWithPopup(GoogleAuthProvider());
+      } else {
+        final GoogleSignIn googleSignIn = GoogleSignIn(
+          serverClientId:
+              '383298804056-3v7k9oefmo2bbu297s5b8vrb5looiqll.apps.googleusercontent.com',
         );
-        return;
+
+        debugPrint('Starting Google Sign-In...');
+        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+        debugPrint('googleUser returned: ${googleUser?.email ?? "null"}');
+
+        if (googleUser == null) {
+          Get.back();
+          debugPrint('Google Sign-In cancelled by user or failed silently.');
+          Get.snackbar(
+            t("Cancelled", "ยกเลิก"),
+            t("Google sign-in was cancelled or failed",
+                "การเข้าสู่ระบบด้วย Google ถูกยกเลิกหรือล้มเหลว"),
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          return;
+        }
+
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+        debugPrint(
+            'idToken null? ${googleAuth.idToken == null} | accessToken null? ${googleAuth.accessToken == null}');
+
+        if (googleAuth.idToken == null) {
+          Get.back();
+          Get.snackbar(
+            t("Error", "เกิดข้อผิดพลาด"),
+            t("Missing ID token from Google. Check serverClientId / SHA-1.",
+                "ไม่ได้รับ ID token จาก Google กรุณาตรวจสอบ serverClientId / SHA-1"),
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+          return;
+        }
+
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        userCredential =
+            await FirebaseAuth.instance.signInWithCredential(credential);
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      debugPrint(
-          'idToken null? ${googleAuth.idToken == null} | accessToken null? ${googleAuth.accessToken == null}');
-
-      if (googleAuth.idToken == null) {
-        Get.back();
-        Get.snackbar(
-          t("Error", "เกิดข้อผิดพลาด"),
-          t("Missing ID token from Google. Check serverClientId / SHA-1.",
-              "ไม่ได้รับ ID token จาก Google กรุณาตรวจสอบ serverClientId / SHA-1"),
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
-        return;
-      }
-
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCredential.user;
       debugPrint("Google Sign-In successful: ${user?.email}");
-      
+
       if (user != null) {
-        // If they already have an account, sign them in directly and go to the wrapper/home screen
         if (userCredential.additionalUserInfo?.isNewUser == false) {
-          Get.back(); // dismiss loading dialog
+          Get.back();
           Get.offAll(() => const Wrapper());
           return;
         }
 
         String displayName = user.displayName?.trim() ?? "";
-        if (displayName.isEmpty) {
-          displayName = "Unknown User";
-        }
-        List<String> nameParts = displayName.split(' ');
-        String fname = nameParts[0];
+        if (displayName.isEmpty) displayName = "Unknown User";
+        final String fname = displayName.split(' ')[0];
 
         Get.back();
         Get.to(() => GenderPage(
